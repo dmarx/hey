@@ -1,0 +1,97 @@
+#! ./_venv/bin/python
+
+from omegaconf import OmegaConf
+import openai
+from pathlib import Path
+import rich
+import sys
+
+import logging
+from rich.logging import RichHandler
+
+FORMAT = "%(message)s"
+logging.basicConfig(
+    #level="NOTSET", 
+    level="INFO", 
+    format=FORMAT, datefmt="[%X]", handlers=[RichHandler()]
+)
+
+log = logging.getLogger("rich")
+
+
+
+DEFAULT_SYSTEM_PROMPT = "Hello! I am a helpful, creative, clever, and friendly assistant."
+DEFAULT_USER_TEMPLATE = "{text}"
+
+def load_default_context():
+    log.debug("Loading default context")
+    return [{
+        "role": "system",
+        "content": DEFAULT_SYSTEM_PROMPT,
+    }]
+
+
+def load_context(persona=None):
+    context = load_default_context()
+    if persona is not None:
+        context['content'] += "Your name is {persona}."
+        hx = load_history(persona)
+        context.extend(hx)
+    return context
+
+import json
+
+def load_history(persona):
+    hx = Path("personas") / f"{persona}.json"
+    if hx.exists():
+        with hx.open('r') as f:
+            return json.load(f)
+    
+
+def generate(
+    prompt: str,
+    context=None,
+    system_prompt: str = DEFAULT_SYSTEM_PROMPT,
+    user_template: str = DEFAULT_USER_TEMPLATE,
+    **kargs
+) -> str:
+    """
+    Generate code completion using OpenAI's Codex model.
+
+    Args:
+        prompt (str): The prompt to generate code completion for.
+
+    Returns:
+        str: The generated code completion.
+    """
+
+    log.debug(prompt)
+
+    if context is None:
+        context = []
+    context.append({"role": "user", "content": user_template.format(text=prompt)})
+    completions = openai.ChatCompletion.create(model="gpt-3.5-turbo", messages=context, **kargs)
+    return completions.choices[0]['message']['content'].strip()
+
+
+def respond_as(prompt, persona=None):
+    context = load_context(persona)
+    response = generate(prompt=prompt, context=context)
+    return response
+
+def respond(message):
+    prompt, persona = choose_persona(message)
+    response = respond_as(prompt, persona)
+    return response
+
+def choose_persona(message):
+    if ":" not in message:
+        return message, None
+    persona, prompt = message.split(":", 1)
+    return prompt, persona
+
+if __name__ == '__main__':
+    #config = OmegaConf.load('config.yaml')
+    message = ' '.join(sys.argv[1:])
+    response = respond_as(message)
+    rich.print(response)

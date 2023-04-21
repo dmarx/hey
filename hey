@@ -11,12 +11,12 @@ from rich.logging import RichHandler
 
 FORMAT = "%(message)s"
 logging.basicConfig(
-    #level="NOTSET", 
-    level="INFO", 
+    level="NOTSET", 
+    #level="INFO", 
     format=FORMAT, datefmt="[%X]", handlers=[RichHandler()]
 )
 
-log = logging.getLogger("rich")
+logger = logging.getLogger("rich")
 
 
 
@@ -24,7 +24,7 @@ DEFAULT_SYSTEM_PROMPT = "Hello! I am a helpful, creative, clever, and friendly a
 DEFAULT_USER_TEMPLATE = "{text}"
 
 def load_default_context():
-    log.debug("Loading default context")
+    logger.debug("Loading default context")
     return [{
         "role": "system",
         "content": DEFAULT_SYSTEM_PROMPT,
@@ -32,26 +32,28 @@ def load_default_context():
 
 
 def load_context(persona=None):
-    context = load_default_context()
     if persona is not None:
-        context['content'] += "Your name is {persona}."
         hx = load_history(persona)
-        context.extend(hx)
-    return context
+        if hx is None:
+            hx = load_default_context()
+            hx[0]['content'] = f"My name is {persona}."
+    return hx
 
 import json
+import jsonlines
 
 def load_history(persona):
-    hx = Path("personas") / f"{persona}.json"
+    hx = Path("personas") / f"{persona}.jsonl"
     if hx.exists():
-        with hx.open('r') as f:
-            return json.load(f)
+        #with hx.open('r') as f:
+        #    return json.load(f)
+        with jsonlines.open(hx) as reader:
+            return [obj for obj in reader]
     
 
 def generate(
     prompt: str,
     context=None,
-    system_prompt: str = DEFAULT_SYSTEM_PROMPT,
     user_template: str = DEFAULT_USER_TEMPLATE,
     **kargs
 ) -> str:
@@ -65,18 +67,33 @@ def generate(
         str: The generated code completion.
     """
 
-    log.debug(prompt)
+    logger.debug(prompt)
 
     if context is None:
         context = []
     context.append({"role": "user", "content": user_template.format(text=prompt)})
     completions = openai.ChatCompletion.create(model="gpt-3.5-turbo", messages=context, **kargs)
-    return completions.choices[0]['message']['content'].strip()
+    return completions.choices[0]['message']['content'].strip(), context
 
+def commit_to_memory(persona, context, response):
+    user_msg = context[-1]
+    system_msg = {"role": "system", "content": response}
+    root = Path("personas")
+    root.mkdir(exist_ok=True)
+    if persona is not None:
+        with jsonlines.open(root / f"{persona}.jsonl", mode='a') as writer:
+            writer.write(user_msg)
+            writer.write(system_msg)
+    user_msg['persona'] = persona
+    system_msg['persona'] = persona
+    with jsonlines.open(root / "any.jsonl", mode='a') as writer:
+        writer.write(user_msg)
+        writer.write(system_msg)
 
 def respond_as(prompt, persona=None):
     context = load_context(persona)
-    response = generate(prompt=prompt, context=context)
+    response, context = generate(prompt=prompt, context=context)
+    commit_to_memory(persona, context, response)
     return response
 
 def respond(message):
@@ -85,6 +102,7 @@ def respond(message):
     return response
 
 def choose_persona(message):
+    #logger.debug(message)
     if ":" not in message:
         return message, None
     persona, prompt = message.split(":", 1)
@@ -93,5 +111,5 @@ def choose_persona(message):
 if __name__ == '__main__':
     #config = OmegaConf.load('config.yaml')
     message = ' '.join(sys.argv[1:])
-    response = respond_as(message)
+    response = respond(message)
     rich.print(response)

@@ -77,7 +77,7 @@ def respond_as(prompt, persona=None):
     terminal_height, _ = os.get_terminal_size()
     full_response = ""
     text=Text()
-    with Live(text, console=console, refresh_per_second=10) as live:
+    with Live(text, console=console, refresh_per_second=10, vertical_overflow="visible") as live:
         for chunk in response:
             if chunk['choices'][0].get('finish_reason') is not None:
                 break

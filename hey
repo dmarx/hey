@@ -1,4 +1,4 @@
-#! _venv/bin/python
+#! /Users/dmarx/proj/hey/_venv/bin/python
 import openai
 import jsonlines
 import logging
@@ -68,11 +68,14 @@ def commit_to_memory(persona, context, response):
         writer.write(user_msg)
         writer.write(system_msg)
 
+import os
 
 def respond_as(prompt, persona=None):
     context = load_context(persona)
     response, context = generate(prompt=prompt, context=context, stream=True)
-    
+
+    terminal_height, _ = os.get_terminal_size()
+    full_response = ""
     text=Text()
     with Live(text, console=console, refresh_per_second=10) as live:
         for chunk in response:
@@ -82,11 +85,13 @@ def respond_as(prompt, persona=None):
             if 'role' in delta:
                 continue
             content = delta['content']
-            text.append(content)
-            live.update(text)
+            #text.append(content)
+            full_response += content
+            #live.update(text)
+            live.update('\n'.join(full_response.split('\n')[-terminal_height+1:]))
         
     console.clear()
-    console.print(Markdown(str(text)), highlight=True)
+    console.print(Markdown(full_response), highlight=True)
 
     full_response = str(text)
     commit_to_memory(persona, context, full_response)

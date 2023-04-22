@@ -94,7 +94,7 @@ def respond_as(prompt, persona=None):
     console.print(f"Hey {persona+',' if persona else ''}{prompt}", style="green", highlight=False)
     console.print(Markdown(full_response), highlight=True)
 
-    full_response = str(text)
+    #full_response = str(text)
     commit_to_memory(persona, context, full_response)
     return full_response
 

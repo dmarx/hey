@@ -91,7 +91,7 @@ def respond_as(prompt, persona=None):
             live.update('\n'.join(full_response.split('\n')[-terminal_height+1:]))
         
     console.clear()
-    console.print(f"Hey {persona+', ' if persona else ''}{prompt}", style="green", highlight=False)
+    console.print(f"Hey {persona+',' if persona else ''}{prompt}", style="green", highlight=False)
     console.print(Markdown(full_response), highlight=True)
 
     full_response = str(text)

@@ -1,6 +1,4 @@
-Here's a shorter and more concise README:
-
-# Hey you: do the thing.
+# ./hey you: do the thing.
 
 A simple LLM CLI with response streaming and markdown rendering (via rich), and simple persona creation with per-persona memory.
 
